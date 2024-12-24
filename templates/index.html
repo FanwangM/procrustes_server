@@ -420,51 +420,67 @@
         document.getElementById('algorithm').addEventListener('change', updateDefaultParams);
         updateDefaultParams();
 
+        let pollInterval;
+
+        async function pollTaskStatus(taskId) {
+            try {
+                const response = await fetch(`/status/${taskId}`);
+                const data = await response.json();
+                
+                if (data.state === 'SUCCESS') {
+                    clearInterval(pollInterval);
+                    const result = data.result;
+                    
+                    document.getElementById('error').textContent = result.error.toFixed(6);
+                    
+                    const transformationElem = document.getElementById('transformationMatrix');
+                    transformationElem.textContent = formatMatrix(result.transformation);
+                    
+                    const transformedArrayElem = document.getElementById('transformedArray');
+                    transformedArrayElem.textContent = formatMatrix(result.new_array);
+                    
+                    document.querySelector('.loading').style.display = 'none';
+                    document.getElementById('resultSection').style.display = 'block';
+                    
+                    resultData = result;
+                } else if (data.state === 'FAILURE') {
+                    clearInterval(pollInterval);
+                    document.querySelector('.loading').style.display = 'none';
+                    alert('Task failed: ' + data.status);
+                }
+            } catch (error) {
+                console.error('Error polling task status:', error);
+            }
+        }
+
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            console.log('Form submitted');
-
+            
             const formData = new FormData(e.target);
             const loading = document.querySelector('.loading');
             const resultSection = document.getElementById('resultSection');
-
+            
             loading.style.display = 'block';
             resultSection.style.display = 'none';
 
             try {
-                console.log('Sending request...');
                 const response = await fetch('/upload', {
                     method: 'POST',
                     body: formData
                 });
 
-                console.log('Response received');
                 const data = await response.json();
-                console.log('Response data:', data);
-
+                
                 if (response.ok) {
-                    resultData = data;
-                    console.log('Setting error:', data.error);
-                    document.getElementById('error').textContent = data.error.toFixed(6);
-
-                    console.log('Setting transformation matrix');
-                    const transformationElem = document.getElementById('transformationMatrix');
-                    transformationElem.textContent = formatMatrix(data.transformation);
-
-                    console.log('Setting transformed array');
-                    const transformedArrayElem = document.getElementById('transformedArray');
-                    transformedArrayElem.textContent = formatMatrix(data.new_array);
-
-                    resultSection.style.display = 'block';
+                    // Start polling for task status
+                    pollInterval = setInterval(() => pollTaskStatus(data.task_id), 1000);
                 } else {
-                    console.error('Error response:', data);
+                    loading.style.display = 'none';
                     alert(data.error || 'An error occurred');
                 }
             } catch (error) {
-                console.error('Error in request:', error);
-                alert('An error occurred while processing the request');
-            } finally {
                 loading.style.display = 'none';
+                alert('An error occurred while processing the request');
             }
         });
 
