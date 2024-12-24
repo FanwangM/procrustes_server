@@ -5,100 +5,258 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Procrustes Analysis Web Server</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        .container {
-            max-width: 800px;
-            margin-top: 2rem;
+        .wrapper {
+            display: flex;
+            width: 100%;
+            align-items: stretch;
         }
+
+        #sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            min-height: 100vh;
+            transition: all 0.3s;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+        }
+
+        #sidebar.active {
+            margin-left: -250px;
+        }
+
+        #content {
+            width: 100%;
+            padding: 20px;
+            min-height: 100vh;
+            margin-left: 0;
+            transition: all 0.3s;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #sidebarCollapse {
+            margin-right: 10px;
+            background: transparent;
+            border: none;
+            padding: 5px 10px;
+            color: #333;
+        }
+
+        #sidebarCollapse:hover {
+            background: #dee2e6;
+        }
+
+        .sidebar-title {
+            margin: 0;
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        .components {
+            padding: 20px 0;
+        }
+
+        .components a {
+            padding: 10px 20px;
+            display: block;
+            color: #333;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .components a:hover {
+            background: #e9ecef;
+        }
+
+        .components a.active {
+            background: #e9ecef;
+        }
+
         .result-section {
             display: none;
             margin-top: 2rem;
         }
+
         .loading {
             display: none;
+        }
+
+        #showSidebarBtn {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            z-index: 1000;
+            display: none;
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        #showSidebarBtn:hover {
+            background-color: #0b5ed7;
+        }
+
+        #showSidebarBtn.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            #sidebar {
+                margin-left: -250px;
+            }
+            #sidebar.active {
+                margin-left: 0;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1 class="mb-4">Procrustes Analysis</h1>
-        
-        <div class="card">
-            <div class="card-body">
-                <form id="uploadForm" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label for="algorithm" class="form-label">Select Algorithm</label>
-                        <select class="form-select" id="algorithm" name="algorithm" required>
-                            <option value="orthogonal">Orthogonal</option>
-                            <option value="rotational">Rotational</option>
-                            <option value="permutation">Permutation</option>
-                        </select>
-                    </div>
+    <button type="button" id="showSidebarBtn" class="btn">
+        <i class="bi bi-arrow-right-square"></i>
+    </button>
 
-                    <div class="mb-3">
-                        <label for="parameters" class="form-label">Additional Parameters (JSON format)</label>
-                        <div class="form-text mb-2">
-                            Default parameters are shown below. Modify as needed.
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar">
+            <div class="sidebar-header">
+                <button type="button" id="sidebarCollapse" class="btn">
+                    <i class="bi bi-list"></i>
+                </button>
+                <h5 class="sidebar-title">Procrustes Server</h5>
+            </div>
+
+            <div class="components">
+                <a href="#about" class="nav-link" data-section="about">
+                    <i class="bi bi-info-circle"></i> About Procrustes
+                </a>
+                <a href="#tools" class="nav-link active" data-section="tools">
+                    <i class="bi bi-tools"></i> Procrustes Tools
+                </a>
+                <a href="#contact" class="nav-link" data-section="contact">
+                    <i class="bi bi-envelope"></i> Contact
+                </a>
+            </div>
+        </nav>
+
+        <!-- Page Content -->
+        <div id="content">
+            <!-- About Section -->
+            <div id="about-section" class="content-section" style="display: none;">
+                <h2>About Procrustes Analysis</h2>
+                <p>Procrustes analysis is a form of statistical shape analysis that is used to analyze the distribution of a set of shapes. The analysis involves superimposing the shapes by optimally translating, rotating, and uniformly scaling them.</p>
+                <h3>Available Methods</h3>
+                <ul>
+                    <li><strong>Orthogonal Procrustes:</strong> Finds an orthogonal transformation matrix that most closely maps one matrix to another.</li>
+                    <li><strong>Rotational Procrustes:</strong> Similar to orthogonal Procrustes but restricted to rotations only.</li>
+                    <li><strong>Permutation Procrustes:</strong> Finds the best permutation of rows/columns to align two matrices.</li>
+                </ul>
+            </div>
+
+            <!-- Tools Section -->
+            <div id="tools-section" class="content-section">
+                <h2>Procrustes Analysis Tools</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="algorithm" class="form-label">Select Algorithm</label>
+                                <select class="form-select" id="algorithm" name="algorithm" required>
+                                    <option value="orthogonal">Orthogonal</option>
+                                    <option value="rotational">Rotational</option>
+                                    <option value="permutation">Permutation</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="parameters" class="form-label">Additional Parameters (JSON format)</label>
+                                <textarea class="form-control font-monospace" id="parameters" name="parameters" rows="10"></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="file1" class="form-label">First Matrix (NPZ/Excel/TXT)</label>
+                                <input type="file" class="form-control" id="file1" name="file1" accept=".npz,.xlsx,.xls,.txt" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="file2" class="form-label">Second Matrix (NPZ/Excel/TXT)</label>
+                                <input type="file" class="form-control" id="file2" name="file2" accept=".npz,.xlsx,.xls,.txt" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Analyze</button>
+                        </form>
+
+                        <div class="loading mt-3">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Processing...</span>
                         </div>
-                        <textarea class="form-control font-monospace" id="parameters" name="parameters" rows="10"></textarea>
                     </div>
+                </div>
 
-                    <div class="mb-3">
-                        <label for="file1" class="form-label">First Matrix (NPZ/Excel/TXT)</label>
-                        <input type="file" class="form-control" id="file1" name="file1" accept=".npz,.xlsx,.xls,.txt" required>
+                <div id="resultSection" class="result-section">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Results</h5>
+                            <p>Procrustes Error: <span id="error" class="fw-bold"></span></p>
+                            
+                            <div class="mb-3">
+                                <h6>Transformation Matrix:</h6>
+                                <div id="transformationMatrix" class="bg-light p-3 mb-3" style="font-family: monospace;">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6>Transformed Array:</h6>
+                                <div id="transformedArray" class="bg-light p-3 mb-3" style="font-family: monospace;">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Download Format</label>
+                                <select class="form-select" id="downloadFormat">
+                                    <option value="npz">NPZ</option>
+                                    <option value="xlsx">Excel</option>
+                                    <option value="txt">TXT</option>
+                                </select>
+                            </div>
+
+                            <div class="btn-group">
+                                <button class="btn btn-success" onclick="downloadResult('transformation')">
+                                    Download Transformation Matrix
+                                </button>
+                                <button class="btn btn-info" onclick="downloadResult('new_array')">
+                                    Download Transformed Array
+                                </button>
+                            </div>
+                        </div>
                     </div>
-
-                    <div class="mb-3">
-                        <label for="file2" class="form-label">Second Matrix (NPZ/Excel/TXT)</label>
-                        <input type="file" class="form-control" id="file2" name="file2" accept=".npz,.xlsx,.xls,.txt" required>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary">Analyze</button>
-                </form>
-
-                <div class="loading mt-3">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <span class="ms-2">Processing...</span>
                 </div>
             </div>
-        </div>
 
-        <div id="resultSection" class="result-section">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Results</h5>
-                    <p>Procrustes Error: <span id="error" class="fw-bold"></span></p>
-                    
-                    <div class="mb-3">
-                        <h6>Transformation Matrix:</h6>
-                        <div id="transformationMatrix" class="bg-light p-3 mb-3" style="font-family: monospace;">
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <h6>Transformed Array:</h6>
-                        <div id="transformedArray" class="bg-light p-3 mb-3" style="font-family: monospace;">
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Download Format</label>
-                        <select class="form-select" id="downloadFormat">
-                            <option value="npz">NPZ</option>
-                            <option value="xlsx">Excel</option>
-                            <option value="txt">TXT</option>
-                        </select>
-                    </div>
-
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="downloadResult('transformation')">
-                            Download Transformation Matrix
-                        </button>
-                        <button class="btn btn-info" onclick="downloadResult('new_array')">
-                            Download Transformed Array
-                        </button>
+            <!-- Contact Section -->
+            <div id="contact-section" class="content-section" style="display: none;">
+                <h2>Contact Information</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <h5>QC-Procrustes Development Team</h5>
+                        <p>For questions, bug reports, or feature requests, please visit:</p>
+                        <ul>
+                            <li><a href="https://github.com/theochem/procrustes" target="_blank">GitHub Repository</a></li>
+                            <li><a href="https://github.com/theochem/procrustes/issues" target="_blank">Issue Tracker</a></li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -109,39 +267,60 @@
     <script>
         let resultData = null;
 
-        // Function to format JSON with proper indentation
-        function formatJSON(obj) {
-            return JSON.stringify(obj, null, 2);
+        // Sidebar toggle functionality
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('content');
+        const sidebarCollapse = document.getElementById('sidebarCollapse');
+        const showSidebarBtn = document.getElementById('showSidebarBtn');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            content.classList.toggle('active');
+            // Show/hide the floating button based on sidebar state
+            showSidebarBtn.classList.toggle('show', sidebar.classList.contains('active'));
         }
 
-        // Function to format matrix with proper spacing
+        sidebarCollapse.addEventListener('click', toggleSidebar);
+        showSidebarBtn.addEventListener('click', toggleSidebar);
+
+        // Navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                // Update active state
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+
+                // Show corresponding section
+                const section = link.getAttribute('data-section');
+                document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
+                document.getElementById(section + '-section').style.display = 'block';
+            });
+        });
+
         function formatMatrix(matrix) {
             return matrix.map(row => 
                 row.map(val => val.toFixed(6).padStart(12)).join(' ')
             ).join('\n');
         }
 
-        // Function to update parameters based on selected algorithm
         async function updateDefaultParams() {
             const algorithm = document.getElementById('algorithm').value;
             try {
                 const response = await fetch(`/get_default_params/${algorithm}`);
                 const data = await response.json();
-                document.getElementById('parameters').value = formatJSON(data);
+                document.getElementById('parameters').value = JSON.stringify(data, null, 2);
             } catch (error) {
                 console.error('Error fetching default parameters:', error);
             }
         }
 
-        // Update parameters when algorithm changes
         document.getElementById('algorithm').addEventListener('change', updateDefaultParams);
-
-        // Initialize with default parameters
         updateDefaultParams();
 
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            console.log('Form submitted');  // Debug log
+            console.log('Form submitted');
             
             const formData = new FormData(e.target);
             const loading = document.querySelector('.loading');
@@ -151,36 +330,36 @@
             resultSection.style.display = 'none';
 
             try {
-                console.log('Sending request...');  // Debug log
+                console.log('Sending request...');
                 const response = await fetch('/upload', {
                     method: 'POST',
                     body: formData
                 });
 
-                console.log('Response received');  // Debug log
+                console.log('Response received');
                 const data = await response.json();
-                console.log('Response data:', data);  // Debug log
+                console.log('Response data:', data);
                 
                 if (response.ok) {
                     resultData = data;
-                    console.log('Setting error:', data.error);  // Debug log
+                    console.log('Setting error:', data.error);
                     document.getElementById('error').textContent = data.error.toFixed(6);
                     
-                    console.log('Setting transformation matrix');  // Debug log
+                    console.log('Setting transformation matrix');
                     const transformationElem = document.getElementById('transformationMatrix');
                     transformationElem.textContent = formatMatrix(data.transformation);
                     
-                    console.log('Setting transformed array');  // Debug log
+                    console.log('Setting transformed array');
                     const transformedArrayElem = document.getElementById('transformedArray');
                     transformedArrayElem.textContent = formatMatrix(data.new_array);
                     
                     resultSection.style.display = 'block';
                 } else {
-                    console.error('Error response:', data);  // Debug log
+                    console.error('Error response:', data);
                     alert(data.error || 'An error occurred');
                 }
             } catch (error) {
-                console.error('Error in request:', error);  // Debug log
+                console.error('Error in request:', error);
                 alert('An error occurred while processing the request');
             } finally {
                 loading.style.display = 'none';
@@ -192,7 +371,6 @@
 
             const format = document.getElementById('downloadFormat').value;
             const formData = new FormData();
-            
             formData.append('data', JSON.stringify(
                 type === 'transformation' ? resultData.transformation : resultData.new_array
             ));
