@@ -1,4 +1,4 @@
-flask==2.0.1
+flask==2.2.5
 celery==5.3.6
 redis==4.3.4
 numpy>=2.0.0
