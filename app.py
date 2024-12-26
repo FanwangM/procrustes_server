@@ -1,4 +1,4 @@
-import json
+# import json
 import os
 import shutil
 import tempfile
@@ -9,11 +9,13 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from flask import Flask, jsonify, render_template, request, send_file
+# originally use jsonify from flask, but it doesn't support numpy array
+from flask import Flask,render_template, request, send_file, Response
 from procrustes import orthogonal, permutation, rotational
 from werkzeug.utils import secure_filename
 
 from celery_config import celery
+import orjson
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32MB max file size
@@ -96,10 +98,23 @@ def get_default_parameters(algorithm):
     return {}
 
 
+def create_json_response(data, status=200):
+    """Create a JSON response using orjson for better numpy array handling"""
+    return Response(
+        orjson.dumps(
+            data,
+            option=orjson.OPT_SERIALIZE_NUMPY,
+            default=str
+        ),
+        status=status,
+        mimetype='application/json'
+    )
+
+
 @app.route("/get_default_params/<algorithm>")
 def get_default_params(algorithm):
     """API endpoint to get default parameters for an algorithm."""
-    return jsonify(get_default_parameters(algorithm))
+    return get_default_parameters(algorithm)
 
 
 @app.route("/")
@@ -109,77 +124,82 @@ def home():
 
 @app.route("/get_default_params/<algorithm>")
 def default_params(algorithm):
-    return jsonify(get_default_params(algorithm))
+    # return jsonify(get_default_params(algorithm))
+    return create_json_response(get_default_params(algorithm))
 
 
 @celery.task(bind=True)
 def process_matrices(self, algorithm, params, matrix1_data, matrix2_data):
-    # Convert lists back to numpy arrays
-    matrix1 = np.asarray(matrix1_data, dtype=float)
-    matrix2 = np.asarray(matrix2_data, dtype=float)
-    if matrix1.size == 0 or matrix2.size == 0:
-        raise ValueError("Empty matrix received")
-
-    # check if matrices contain NaN, if so, replace with 0
-    if np.isnan(matrix1).any() or np.isnan(matrix2).any():
-        matrix1 = np.nan_to_num(matrix1, nan=0)
-        matrix2 = np.nan_to_num(matrix2, nan=0)
-        # display warning message
-        warnings.warn("Input matrices contain NaN values. Replaced with 0.")
-
-    # Process based on algorithm
-    if algorithm == "orthogonal":
-        result = orthogonal(matrix1, matrix2, **params)
-    elif algorithm == "rotational":
-        result = rotational(matrix1, matrix2, **params)
-    elif algorithm == "permutation":
-        result = permutation(matrix1, matrix2, **params)
-    else:
-        raise ValueError(f"Unknown algorithm: {algorithm}")
-        # Convert numpy arrays to lists for JSON serialization
     try:
-        if hasattr(result, "t"):
+        # Convert lists back to numpy arrays
+        matrix1 = np.asarray(matrix1_data, dtype=float)
+        matrix2 = np.asarray(matrix2_data, dtype=float)
+        if matrix1.size == 0 or matrix2.size == 0:
+            raise ValueError("Empty matrix received")
+
+        # check if matrices contain NaN, if so, replace with 0
+        warning_message = None
+        if np.isnan(matrix1).any() or np.isnan(matrix2).any():
+            matrix1 = np.nan_to_num(matrix1)
+            matrix2 = np.nan_to_num(matrix2)
+            warning_message = 'Input matrices contain NaN values. Replaced with 0.'
+
+        # Process based on algorithm
+        if algorithm == 'orthogonal':
+            result = orthogonal(matrix1, matrix2, **params)
+        elif algorithm == 'rotational':
+            result = rotational(matrix1, matrix2, **params)
+        elif algorithm == 'permutation':
+            result = permutation(matrix1, matrix2, **params)
+        else:
+            raise ValueError(f"Unknown algorithm: {algorithm}")
+
+        # Extract results safely
+        if hasattr(result, 't'):
             transformation = result.t
-        elif hasattr(result, "t1"):
+        elif hasattr(result, 't1'):
             transformation = result.t1
         else:
-            print("Warning: No transformation matrix found in result")
-            transformation = np.eye(array1.shape[1])
-        if hasattr(result, "new_array"):
+            transformation = np.eye(matrix1.shape[1])
+
+        if hasattr(result, 'new_array'):
             new_array = result.new_array
-        elif hasattr(result, "array_transformed"):
+        elif hasattr(result, 'array_transformed'):
             new_array = result.array_transformed
         else:
-            print("Warning: No transformed array found in result")
-            new_array = array2
+            new_array = matrix2
+
         response_data = {
-            "error": float(result.error),
-            "transformation": transformation.tolist(),
-            "new_array": new_array.tolist(),
+            'error': float(result.error),
+            'transformation': transformation,
+            'new_array': new_array
         }
-        print("Response data prepared:", response_data)  # Debug log
-        return jsonify(response_data)
+
+        if warning_message:
+            response_data['warning'] = warning_message
+
+        return response_data
 
     except Exception as e:
-        return {"error": f"Processing error: {str(e)}"}
+        return {'error': f"Processing error: {str(e)}"}
 
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
     print("Received upload request")
 
-    if "file1" not in request.files or "file2" not in request.files:
-        return jsonify({"error": "Both files are required"}), 400
+    if 'file1' not in request.files or 'file2' not in request.files:
+        return create_json_response({'error': 'Both files are required'}, 400)
 
-    file1 = request.files["file1"]
-    file2 = request.files["file2"]
-    algorithm = request.form.get("algorithm", "orthogonal")
+    file1 = request.files['file1']
+    file2 = request.files['file2']
+    algorithm = request.form.get('algorithm', 'orthogonal')
 
-    if file1.filename == "" or file2.filename == "":
-        return jsonify({"error": "No selected files"}), 400
+    if file1.filename == '' or file2.filename == '':
+        return create_json_response({'error': 'No selected files'}, 400)
 
     if not (allowed_file(file1.filename) and allowed_file(file2.filename)):
-        return jsonify({"error": "Invalid file type"}), 400
+        return create_json_response({'error': 'Invalid file type'}, 400)
 
     # Create a unique directory for this upload
     upload_dir = get_unique_upload_dir()
@@ -187,17 +207,13 @@ def upload_file():
     try:
         # Parse parameters
         try:
-            parameters = json.loads(request.form.get("parameters", "{}"))
-        except json.JSONDecodeError:
+            parameters = orjson.loads(request.form.get('parameters', '{}'))
+        except orjson.JSONDecodeError:
             parameters = get_default_parameters(algorithm)
 
         # Save files with unique names
-        file1_path = os.path.join(
-            upload_dir, secure_filename(str(uuid.uuid4()) + "_" + file1.filename)
-        )
-        file2_path = os.path.join(
-            upload_dir, secure_filename(str(uuid.uuid4()) + "_" + file2.filename)
-        )
+        file1_path = os.path.join(upload_dir, secure_filename(str(uuid.uuid4()) + '_' + file1.filename))
+        file2_path = os.path.join(upload_dir, secure_filename(str(uuid.uuid4()) + '_' + file2.filename))
 
         with file_lock:
             file1.save(file1_path)
@@ -209,45 +225,56 @@ def upload_file():
 
         print(f"Arrays loaded - shapes: {array1.shape}, {array2.shape}")
 
+        # Initialize warning message
+        warning_message = None
+
+        # Check for NaN values
+        if np.isnan(array1).any() or np.isnan(array2).any():
+            array1 = np.nan_to_num(array1)
+            array2 = np.nan_to_num(array2)
+            warning_message = 'Input matrices contain NaN values. Replaced with 0.'
+
         # Perform Procrustes analysis
-        if algorithm == "orthogonal":
+        if algorithm == 'orthogonal':
             result = orthogonal(array1, array2, **parameters)
-        elif algorithm == "rotational":
+        elif algorithm == 'rotational':
             result = rotational(array1, array2, **parameters)
-        elif algorithm == "permutation":
+        elif algorithm == 'permutation':
             result = permutation(array1, array2, **parameters)
         else:
-            raise ValueError("Invalid algorithm")
+            raise ValueError('Invalid algorithm')
 
         # Extract results
-        if hasattr(result, "t"):
+        if hasattr(result, 't'):
             transformation = result.t
-        elif hasattr(result, "t1"):
+        elif hasattr(result, 't1'):
             transformation = result.t1
         else:
             transformation = np.eye(array1.shape[1])
 
-        if hasattr(result, "new_array"):
+        if hasattr(result, 'new_array'):
             new_array = result.new_array
-        elif hasattr(result, "array_transformed"):
+        elif hasattr(result, 'array_transformed'):
             new_array = result.array_transformed
         else:
             new_array = array2
 
         response_data = {
-            "error": float(result.error),
-            "transformation": transformation.tolist(),
-            "new_array": new_array.tolist(),
+            'error': float(result.error),
+            'transformation': transformation,
+            'new_array': new_array
         }
 
-        return jsonify(response_data)
+        if warning_message:
+            response_data['warning'] = warning_message
+
+        return create_json_response(response_data)
 
     except Exception as e:
         print(f"Error occurred: {str(e)}")
         import traceback
-
         print(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
+        return create_json_response({'error': str(e)}, 500)
 
     finally:
         # Clean up the unique upload directory
@@ -257,39 +284,52 @@ def upload_file():
 @app.route("/status/<task_id>")
 def task_status(task_id):
     task = process_matrices.AsyncResult(task_id)
-    if task.state == "PENDING":
-        response = {"state": task.state, "status": "Task is pending..."}
-    elif task.state == "FAILURE":
-        response = {"state": task.state, "status": str(task.info)}
+    if task.state == 'PENDING':
+        response = {
+            'state': task.state,
+            'status': 'Pending...'
+        }
+    elif task.state != 'FAILURE':
+        response = {
+            'state': task.state,
+            'result': task.result,
+        }
+        if task.state == 'SUCCESS':
+            response['status'] = 'Task completed!'
+        else:
+            response['status'] = 'Processing...'
     else:
-        response = {"state": task.state, "status": task.info}
-    return jsonify(response)
+        response = {
+            'state': task.state,
+            'status': str(task.info),
+        }
+    return create_json_response(response)
 
 
 @app.route("/download", methods=["POST"])
 def download():
     try:
-        data = json.loads(request.form["data"])
-        format_type = request.form["format"]
+        data = orjson.loads(request.form['data'])
+        format_type = request.form['format']
 
         # Create temporary file
         temp_dir = tempfile.mkdtemp()
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"procrustes_result_{timestamp}"
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'procrustes_result_{timestamp}'
 
-        if format_type == "npz":
-            filepath = os.path.join(temp_dir, f"{filename}.npz")
+        if format_type == 'npz':
+            filepath = os.path.join(temp_dir, f'{filename}.npz')
             np.savez(filepath, np.array(data))
-        elif format_type == "xlsx":
-            filepath = os.path.join(temp_dir, f"{filename}.xlsx")
+        elif format_type == 'xlsx':
+            filepath = os.path.join(temp_dir, f'{filename}.xlsx')
             pd.DataFrame(data).to_excel(filepath, index=False)
         else:  # txt
-            filepath = os.path.join(temp_dir, f"{filename}.txt")
+            filepath = os.path.join(temp_dir, f'{filename}.txt')
             np.savetxt(filepath, np.array(data))
 
         return send_file(filepath, as_attachment=True)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return create_json_response({'error': str(e)}, 500)
 
 
 if __name__ == "__main__":

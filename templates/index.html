@@ -401,9 +401,8 @@
         });
 
         function formatMatrix(matrix) {
-            return matrix.map(row =>
-                row.map(val => val.toFixed(6).padStart(12)).join(' ')
-            ).join('\n');
+            // Return the matrix as is, without formatting
+            return matrix;
         }
 
         async function updateDefaultParams() {
@@ -449,11 +448,11 @@
 
                     console.log('Setting transformation matrix');
                     const transformationElem = document.getElementById('transformationMatrix');
-                    transformationElem.textContent = formatMatrix(data.transformation);
+                    transformationElem.textContent = JSON.stringify(data.transformation, null, 2);
 
                     console.log('Setting transformed array');
                     const transformedArrayElem = document.getElementById('transformedArray');
-                    transformedArrayElem.textContent = formatMatrix(data.new_array);
+                    transformedArrayElem.textContent = JSON.stringify(data.new_array, null, 2);
 
                     resultSection.style.display = 'block';
                 } else {

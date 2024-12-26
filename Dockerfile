@@ -21,5 +21,8 @@ RUN mkdir -p uploads && chmod 777 uploads
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
+# # Set environment variables for the buffered output
+# ENV PYTHONUNBUFFERED=1
+
 # Default command (can be overridden in docker-compose.yml)
 CMD ["gunicorn", "--config", "gunicorn_config.py", "app:app"]
