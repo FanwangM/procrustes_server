@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 from celery_config import celery
 import orjson
 from flask_status import FlaskStatus
+import markdown
 
 app = Flask(__name__)
 app_status = FlaskStatus(app)
@@ -112,6 +113,41 @@ def create_json_response(data, status=200):
     )
 
 
+def read_markdown_file(filename):
+    """Read and convert markdown file to HTML."""
+    filepath = os.path.join(os.path.dirname(__file__), 'md_files', filename)
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+            # Pre-process math blocks to protect them
+            content = content.replace('\\\\', '\\\\\\\\')  # Escape backslashes in math
+
+            # Convert markdown to HTML with math and table support
+            md = markdown.Markdown(extensions=[
+                'tables',
+                'fenced_code',
+                'codehilite',
+                'attr_list'
+            ])
+
+            # First pass: convert markdown to HTML
+            html = md.convert(content)
+
+            # Post-process math blocks
+            # Handle display math ($$...$$)
+            html = html.replace('<p>$$', '<div class="math-block">$$')
+            html = html.replace('$$</p>', '$$</div>')
+
+            # Handle inline math ($...$)
+            # We don't need special handling for inline math as MathJax will handle it
+
+            return html
+    except Exception as e:
+        print(f"Error reading markdown file {filename}: {e}")
+        return f"<p>Error loading content: {str(e)}</p>"
+
+
 @app.route("/get_default_params/<algorithm>")
 def get_default_params(algorithm):
     """API endpoint to get default parameters for an algorithm."""
@@ -127,6 +163,15 @@ def home():
 def default_params(algorithm):
     # return jsonify(get_default_params(algorithm))
     return create_json_response(get_default_params(algorithm))
+
+
+@app.route('/md/<filename>')
+def get_markdown(filename):
+    """Serve markdown files as HTML."""
+    if not filename.endswith('.md'):
+        filename = filename + '.md'
+    html = read_markdown_file(filename)
+    return create_json_response({'html': html})
 
 
 @celery.task(bind=True)
