@@ -114,3 +114,6 @@ procrustes/_version.py
 # any backup file
 *.bak
 
+# any file under tmp directory
+tmp/*
+

@@ -2,33 +2,37 @@ version: '3.8'
 
 services:
   web:
-    # build: .
-    # command: gunicorn --config gunicorn_config.py app:app --reload
-    # ports:
-    #   - "3000:8000"
-    # volumes:
-    #   - .:/app
-    # depends_on:
-    #   - redis
-    # environment:
-    #   - REDIS_URL=redis://redis:6379/0
     build: .
-    command: python -m flask run --host=0.0.0.0 --port=8000 --debug
+    command: gunicorn --config gunicorn_config.py app:app --reload
     ports:
       - "3000:8000"
     volumes:
       - .:/app
       - /app/__pycache__
+    depends_on:
+      - redis
     environment:
       - FLASK_ENV=development
       - FLASK_DEBUG=1
       - REDIS_URL=redis://redis:6379/0
+    # build: .
+    # command: python -m flask run --host=0.0.0.0 --port=8000 --debug
+    # ports:
+    #   - "3000:8000"
+    # volumes:
+    #   - .:/app
+    #   - /app/__pycache__
+    # environment:
+    #   - FLASK_ENV=development
+    #   - FLASK_DEBUG=1
+    #   - REDIS_URL=redis://redis:6379/0
 
   celery_worker:
     build: .
     command: celery -A app.celery worker --loglevel=info
     volumes:
       - .:/app
+      - /app/__pycache__
     depends_on:
       - redis
     deploy:
