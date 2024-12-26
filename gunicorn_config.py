@@ -20,14 +20,14 @@ timeout = 300
 keepalive = 5
 
 # Log level
-loglevel = 'info'
+loglevel = "info"
 
 # Access log format
-accesslog = '-'
-errorlog = '-'
+accesslog = "-"
+errorlog = "-"
 
 # Bind address
-bind = '0.0.0.0:8000'
+bind = "0.0.0.0:8000"
 
 # Worker class
-worker_class = 'gevent'
+worker_class = "gevent"

@@ -1,8 +1,6 @@
 from celery import Celery
 
-celery = Celery('procrustes_server',
-                broker='redis://redis:6379/0',
-                backend='redis://redis:6379/0')
+celery = Celery("procrustes_server", broker="redis://redis:6379/0", backend="redis://redis:6379/0")
 
 celery.conf.update(
     worker_max_tasks_per_child=1000,
