@@ -110,3 +110,10 @@ tags
 procrustes/_version.py
 
 *.npz
+
+# any backup file
+*.bak
+
+# any file under tmp directory
+tmp/*
+

@@ -11,14 +11,18 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
+# Copy application code
 COPY . .
 
 # Create uploads directory
-RUN mkdir -p uploads
+RUN mkdir -p uploads && chmod 777 uploads
 
 # Create a non-root user
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Command will be specified in docker-compose.yml
+# # Set environment variables for the buffered output
+# ENV PYTHONUNBUFFERED=1
+
+# Default command (can be overridden in docker-compose.yml)
+CMD ["gunicorn", "--config", "gunicorn_config.py", "app:app"]
