@@ -207,61 +207,78 @@ def get_markdown(filename):
     return create_json_response({"html": html})
 
 
+def process_procrustes(array1, array2, algorithm, parameters):
+    """
+    Process two arrays using the specified Procrustes algorithm.
+
+    Parameters
+    ----------
+    array1 : np.ndarray
+        First input array
+    array2 : np.ndarray
+        Second input array
+    algorithm : str
+        Name of the Procrustes algorithm to use
+    parameters : dict
+        Parameters for the algorithm
+
+    Returns
+    -------
+    dict
+        Dictionary containing results and any warnings
+    """
+    warning_message = None
+
+    # Check for NaN values
+    if np.isnan(array1).any() or np.isnan(array2).any():
+        array1 = np.nan_to_num(array1)
+        array2 = np.nan_to_num(array2)
+        warning_message = "Input matrices contain NaN values. Replaced with 0."
+
+    # Apply Procrustes algorithm
+    if algorithm.lower() in ALGORITHM_MAP:
+        result = ALGORITHM_MAP[algorithm.lower()](array1, array2, **parameters)
+    else:
+        raise ValueError(f"Unknown algorithm: {algorithm}")
+
+    # Extract results
+    transformation = (
+        result.t
+        if hasattr(result, "t")
+        else result.t1 if hasattr(result, "t1") else np.eye(array1.shape[1])
+    )
+
+    new_array = (
+        result.new_array
+        if hasattr(result, "new_array")
+        else result.array_transformed if hasattr(result, "array_transformed") else array2
+    )
+
+    # Prepare response
+    response_data = {
+        "error": float(result.error),
+        "transformation": transformation,
+        "new_array": new_array,
+    }
+
+    if warning_message:
+        response_data["warning"] = warning_message
+
+    return response_data
+
+
 @celery.task(bind=True)
 def process_matrices(self, algorithm, params, matrix1_data, matrix2_data):
+    """Celery task for processing matrices asynchronously."""
     try:
         # Convert lists back to numpy arrays
         matrix1 = np.asarray(matrix1_data, dtype=float)
         matrix2 = np.asarray(matrix2_data, dtype=float)
+
         if matrix1.size == 0 or matrix2.size == 0:
             raise ValueError("Empty matrix received")
 
-        # check if matrices contain NaN, if so, replace with 0
-        warning_message = None
-        if np.isnan(matrix1).any() or np.isnan(matrix2).any():
-            matrix1 = np.nan_to_num(matrix1)
-            matrix2 = np.nan_to_num(matrix2)
-            warning_message = "Input matrices contain NaN values. Replaced with 0."
-
-        # # Process based on algorithm
-        # if algorithm == "orthogonal":
-        #     result = orthogonal(matrix1, matrix2, **params)
-        # elif algorithm == "rotational":
-        #     result = rotational(matrix1, matrix2, **params)
-        # elif algorithm == "permutation":
-        #     result = permutation(matrix1, matrix2, **params)
-        # else:
-        #     raise ValueError(f"Unknown algorithm: {algorithm}")
-        if algorithm.lower() in ALGORITHM_MAP.keys():
-            result = ALGORITHM_MAP[algorithm.lower()](matrix1, matrix2, **params)
-        else:
-            raise ValueError(f"Unknown algorithm: {algorithm}")
-
-        # Extract results safely
-        if hasattr(result, "t"):
-            transformation = result.t
-        elif hasattr(result, "t1"):
-            transformation = result.t1
-        else:
-            transformation = np.eye(matrix1.shape[1])
-
-        if hasattr(result, "new_array"):
-            new_array = result.new_array
-        elif hasattr(result, "array_transformed"):
-            new_array = result.array_transformed
-        else:
-            new_array = matrix2
-
-        response_data = {
-            "error": float(result.error),
-            "transformation": transformation,
-            "new_array": new_array,
-        }
-
-        if warning_message:
-            response_data["warning"] = warning_message
-
-        return response_data
+        return process_procrustes(matrix1, matrix2, algorithm, params)
 
     except Exception as e:
         return {"error": f"Processing error: {str(e)}"}
@@ -269,6 +286,7 @@ def process_matrices(self, algorithm, params, matrix1_data, matrix2_data):
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
+    """Handle file upload and process matrices."""
     print("Received upload request")
 
     if "file1" not in request.files or "file2" not in request.files:
@@ -309,57 +327,11 @@ def upload_file():
         # Load data
         array1 = load_data(file1_path)
         array2 = load_data(file2_path)
-
         print(f"Arrays loaded - shapes: {array1.shape}, {array2.shape}")
 
-        # Initialize warning message
-        warning_message = None
-
-        # Check for NaN values
-        if np.isnan(array1).any() or np.isnan(array2).any():
-            array1 = np.nan_to_num(array1)
-            array2 = np.nan_to_num(array2)
-            warning_message = "Input matrices contain NaN values. Replaced with 0."
-
-        # Perform Procrustes analysis
-        # if algorithm == "orthogonal":
-        #     result = orthogonal(array1, array2, **parameters)
-        # elif algorithm == "rotational":
-        #     result = rotational(array1, array2, **parameters)
-        # elif algorithm == "permutation":
-        #     result = permutation(array1, array2, **parameters)
-        # else:
-        #     raise ValueError("Invalid algorithm")
-        if algorithm.lower() in ALGORITHM_MAP.keys():
-            result = ALGORITHM_MAP[algorithm.lower()](array1, array2, **parameters)
-        else:
-            raise ValueError(f"Unknown algorithm: {algorithm}")
-
-        # Extract results
-        if hasattr(result, "t"):
-            transformation = result.t
-        elif hasattr(result, "t1"):
-            transformation = result.t1
-        else:
-            transformation = np.eye(array1.shape[1])
-
-        if hasattr(result, "new_array"):
-            new_array = result.new_array
-        elif hasattr(result, "array_transformed"):
-            new_array = result.array_transformed
-        else:
-            new_array = array2
-
-        response_data = {
-            "error": float(result.error),
-            "transformation": transformation,
-            "new_array": new_array,
-        }
-
-        if warning_message:
-            response_data["warning"] = warning_message
-
-        return create_json_response(response_data)
+        # Process the matrices
+        result = process_procrustes(array1, array2, algorithm, parameters)
+        return create_json_response(result)
 
     except Exception as e:
         print(f"Error occurred: {str(e)}")
