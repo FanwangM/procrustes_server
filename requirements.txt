@@ -1,5 +1,5 @@
 flask==3.0.0
-qc-procrustes>=1.0.0
+qc-procrustes>=1.1.1
 numpy==1.26.2
 pandas==2.1.4
 openpyxl>=3.0.9

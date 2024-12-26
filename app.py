@@ -1,4 +1,5 @@
 # import json
+import inspect
 import os
 import shutil
 import tempfile
@@ -8,19 +9,30 @@ import warnings
 from datetime import datetime
 from typing import Callable, Dict
 
-import inspect
 import markdown
 import numpy as np
 import orjson
 import pandas as pd
+
 # originally use jsonify from flask, but it doesn't support numpy array
-from flask import Flask,render_template, request, send_file, Response
-from procrustes import orthogonal, permutation, rotational
-from werkzeug.utils import secure_filename
-from celery_config import celery
-import orjson
+from flask import Flask, Response, render_template, request, send_file
 from flask_status import FlaskStatus
-import markdown
+from procrustes import (
+    generalized,
+    generic,
+    kopt_heuristic_double,
+    kopt_heuristic_single,
+    orthogonal,
+    orthogonal_2sided,
+    permutation,
+    permutation_2sided,
+    rotational,
+    softassign,
+    symmetric,
+)
+from werkzeug.utils import secure_filename
+
+from celery_config import celery
 
 app = Flask(__name__)
 app_status = FlaskStatus(app)
@@ -38,7 +50,16 @@ ALGORITHM_MAP = {
     "orthogonal": orthogonal,
     "rotational": rotational,
     "permutation": permutation,
+    "generalized": generalized,
+    "generic": generic,
+    "kopt_heuristic_single": kopt_heuristic_single,
+    "kopt_heuristic_double": kopt_heuristic_double,
+    "orthogonal_2sided": orthogonal_2sided,
+    "permutation_2sided": permutation_2sided,
+    "softassign": softassign,
+    "symmetric": symmetric,
 }
+
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -202,13 +223,17 @@ def process_matrices(self, algorithm, params, matrix1_data, matrix2_data):
             matrix2 = np.nan_to_num(matrix2)
             warning_message = "Input matrices contain NaN values. Replaced with 0."
 
-        # Process based on algorithm
-        if algorithm == "orthogonal":
-            result = orthogonal(matrix1, matrix2, **params)
-        elif algorithm == "rotational":
-            result = rotational(matrix1, matrix2, **params)
-        elif algorithm == "permutation":
-            result = permutation(matrix1, matrix2, **params)
+        # # Process based on algorithm
+        # if algorithm == "orthogonal":
+        #     result = orthogonal(matrix1, matrix2, **params)
+        # elif algorithm == "rotational":
+        #     result = rotational(matrix1, matrix2, **params)
+        # elif algorithm == "permutation":
+        #     result = permutation(matrix1, matrix2, **params)
+        # else:
+        #     raise ValueError(f"Unknown algorithm: {algorithm}")
+        if algorithm.lower() in ALGORITHM_MAP.keys():
+            result = ALGORITHM_MAP[algorithm.lower()](matrix1, matrix2, **params)
         else:
             raise ValueError(f"Unknown algorithm: {algorithm}")
 
@@ -297,14 +322,18 @@ def upload_file():
             warning_message = "Input matrices contain NaN values. Replaced with 0."
 
         # Perform Procrustes analysis
-        if algorithm == "orthogonal":
-            result = orthogonal(array1, array2, **parameters)
-        elif algorithm == "rotational":
-            result = rotational(array1, array2, **parameters)
-        elif algorithm == "permutation":
-            result = permutation(array1, array2, **parameters)
+        # if algorithm == "orthogonal":
+        #     result = orthogonal(array1, array2, **parameters)
+        # elif algorithm == "rotational":
+        #     result = rotational(array1, array2, **parameters)
+        # elif algorithm == "permutation":
+        #     result = permutation(array1, array2, **parameters)
+        # else:
+        #     raise ValueError("Invalid algorithm")
+        if algorithm.lower() in ALGORITHM_MAP.keys():
+            result = ALGORITHM_MAP[algorithm.lower()](array1, array2, **parameters)
         else:
-            raise ValueError("Invalid algorithm")
+            raise ValueError(f"Unknown algorithm: {algorithm}")
 
         # Extract results
         if hasattr(result, "t"):
