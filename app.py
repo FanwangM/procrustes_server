@@ -13,11 +13,12 @@ import pandas as pd
 from flask import Flask,render_template, request, send_file, Response
 from procrustes import orthogonal, permutation, rotational
 from werkzeug.utils import secure_filename
-
 from celery_config import celery
 import orjson
+from flask_status import FlaskStatus
 
 app = Flask(__name__)
+app_status = FlaskStatus(app)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32MB max file size
 app.config["UPLOAD_FOLDER"] = "uploads"
 file_lock = threading.Lock()
@@ -330,6 +331,40 @@ def download():
         return send_file(filepath, as_attachment=True)
     except Exception as e:
         return create_json_response({'error': str(e)}, 500)
+
+
+@app.route('/status')
+def server_status():
+    """Return server status"""
+    status = {
+        'status': 'ok',
+        'components': {
+            'flask': True,
+            'celery': False,
+            'redis': False
+        }
+    }
+
+    # Check Celery
+    try:
+        celery.control.ping(timeout=1)
+        status['components']['celery'] = True
+    except Exception as e:
+        print(f"Celery check failed: {e}")
+
+    # Check Redis
+    try:
+        redis_client = celery.backend.client
+        redis_client.ping()
+        status['components']['redis'] = True
+    except Exception as e:
+        print(f"Redis check failed: {e}")
+
+    # Set overall status based on components
+    if not all(status['components'].values()):
+        status['status'] = 'degraded'
+
+    return create_json_response(status)
 
 
 if __name__ == "__main__":

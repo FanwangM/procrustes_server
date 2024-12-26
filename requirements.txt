@@ -10,3 +10,4 @@ redis==5.0.1
 celery==5.3.6
 flower==2.0.1
 orjson==3.10.12
+flask_status==1.0.1
