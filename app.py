@@ -121,7 +121,7 @@ def read_markdown_file(filename):
             content = f.read()
 
             # Pre-process math blocks to protect them
-            content = content.replace('\\\\', '\\\\\\\\')  # Escape backslashes in math
+            # content = content.replace('\\\\', '\\\\\\\\')  # Escape backslashes in math
 
             # Convert markdown to HTML with math and table support
             md = markdown.Markdown(extensions=[

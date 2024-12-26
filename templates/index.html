@@ -390,20 +390,24 @@
         }
     </style>
     <!-- MathJax Configuration -->
-    <script type="text/x-mathjax-config">
+        <script type="text/x-mathjax-config">
         MathJax.Hub.Config({
             tex2jax: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']],
-                processEscapes: true,
-                processEnvironments: true
-            },
-            CommonHTML: { linebreaks: { automatic: true } },
-            "HTML-CSS": { linebreaks: { automatic: true } },
-            SVG: { linebreaks: { automatic: true } }
+        inlineMath: [['$','$'], ['\\(','\\)']],
+        displayMath: [['$$','$$'], ['\\[','\\]']],
+        processEscapes: true,
+        processEnvironments: true
+        },
+        displayAlign: 'center',
+        "HTML-CSS": {
+            styles: {'.MathJax_Display': {"margin": 0}},
+            linebreaks: { automatic: true }
+        }
         });
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-AMS_HTML"></script>
+
+    <!-- MathJax Loading -->
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
     <button type="button" id="showSidebarBtn" class="btn">
